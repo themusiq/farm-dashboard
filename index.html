@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="manifest" href="/manifest.json">
+<title>RAY 농장 대시보드</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0f172a; color: #e2e8f0; font-family: -apple-system, sans-serif; padding: 16px; }
+  h1 { font-size: 18px; font-weight: 600; margin-bottom: 16px; color: #94a3b8; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .card { background: #1e293b; border-radius: 12px; padding: 16px; }
+  .card.full { grid-column: 1 / -1; }
+  .card-label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+  .card-value { font-size: 28px; font-weight: 700; color: #f1f5f9; }
+  .card-sub { font-size: 13px; color: #94a3b8; margin-top: 4px; }
+  .weather-row { display: flex; align-items: center; gap: 8px; }
+  .temp { font-size: 42px; font-weight: 700; color: #f1f5f9; }
+  .weather-detail { display: flex; flex-direction: column; gap: 4px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+  .badge-green { background: #064e3b; color: #6ee7b7; }
+  .badge-yellow { background: #78350f; color: #fcd34d; }
+  .badge-red { background: #7f1d1d; color: #fca5a5; }
+  .gdd-bar-bg { background: #0f172a; border-radius: 8px; height: 12px; margin: 8px 0; overflow: hidden; }
+  .gdd-bar { height: 100%; border-radius: 8px; background: linear-gradient(90deg, #3b82f6, #06b6d4); transition: width 1s ease; }
+  .gdd-labels { display: flex; justify-content: space-between; font-size: 11px; color: #64748b; }
+  .list-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #0f172a; font-size: 13px; }
+  .list-item:last-child { border-bottom: none; }
+  .list-date { color: #64748b; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+  .dot-green { background: #10b981; }
+  .dot-yellow { background: #f59e0b; }
+  .dot-red { background: #ef4444; }
+  .loading { color: #475569; font-size: 13px; text-align: center; padding: 20px; }
+  .update-time { font-size: 11px; color: #475569; text-align: right; margin-top: 12px; }
+  .stage-bar { display: flex; gap: 4px; margin-top: 8px; }
+  .stage { flex: 1; height: 6px; border-radius: 3px; background: #0f172a; }
+  .stage.active { background: #3b82f6; }
+  .stage.done { background: #06b6d4; }
+</style>
+</head>
+<body>
+
+<h1>🌱 RAY 농장 현황</h1>
+
+<div class="grid">
+
+  <!-- 기상 카드 -->
+  <div class="card full" id="weather-card">
+    <div class="card-label">오늘 기상 · 충남 부여</div>
+    <div class="loading">불러오는 중...</div>
+  </div>
+
+  <!-- 적산온도 카드 -->
+  <div class="card full" id="gdd-card">
+    <div class="card-label">적산온도 · 캠벨포도</div>
+    <div class="loading">불러오는 중...</div>
+  </div>
+
+  <!-- 관수 카드 -->
+  <div class="card" id="water-card">
+    <div class="card-label">최근 관수</div>
+    <div class="loading">불러오는 중...</div>
+  </div>
+
+  <!-- 병해 카드 -->
+  <div class="card" id="disease-card">
+    <div class="card-label">병해 경보</div>
+    <div class="loading">불러오는 중...</div>
+  </div>
+
+</div>
+
+<div class="update-time" id="update-time"></div>
+
+<script>
+async function loadData() {
+  try {
+    const res = await fetch('/api/sheets');
+    const data = await res.json();
+    renderWeather(data['기상'] || []);
+    renderGDD(data['작기정보'] || []);
+    renderWater(data['포도_관수'] || []);
+    renderDisease(data['포도_병해'] || []);
+    document.getElementById('update-time').textContent =
+      '업데이트: ' + new Date().toLocaleString('ko-KR');
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+function renderWeather(rows) {
+  const card = document.getElementById('weather-card');
+  if (rows.length < 2) { card.innerHTML = '<div class="card-label">오늘 기상 · 충남 부여</div><div class="card-sub">데이터 없음</div>'; return; }
+
+  const headers = rows[0];
+  const today = new Date().toISOString().slice(0,10).replace(/-/g,'');
+  const todayRows = rows.slice(1).filter(r => String(r[1]) === today);
+  if (!todayRows.length) { card.innerHTML = '<div class="card-label">오늘 기상 · 충남 부여</div><div class="card-sub">오늘 데이터 없음</div>'; return; }
+
+  const temps = todayRows.map(r => parseFloat(r[3])).filter(v => !isNaN(v));
+  const humids = todayRows.map(r => parseFloat(r[4])).filter(v => !isNaN(v));
+  const rains = todayRows.map(r => parseFloat(r[5])).filter(v => !isNaN(v));
+  const sky = todayRows[Math.floor(todayRows.length/2)]?.[7] || '-';
+
+  const maxTemp = temps.length ? Math.max(...temps) : '-';
+  const minTemp = temps.length ? Math.min(...temps) : '-';
+  const avgHumid = humids.length ? Math.round(humids.reduce((a,b)=>a+b,0)/humids.length) : '-';
+  const rainProb = rains.length ? Math.max(...rains) : 0;
+
+  const skyEmoji = sky === '맑음' ? '☀️' : sky === '구름많음' ? '⛅' : sky === '흐림' ? '☁️' : '🌤️';
+
+  card.innerHTML = `
+    <div class="card-label">오늘 기상 · 충남 부여</div>
+    <div class="weather-row">
+      <div class="temp">${maxTemp}°</div>
+      <div class="weather-detail">
+        <span style="font-size:24px">${skyEmoji}</span>
+        <span class="card-sub">${sky}</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:12px;margin-top:8px">
+      <span class="card-sub">최저 ${minTemp}°</span>
+      <span class="card-sub">습도 ${avgHumid}%</span>
+      <span class="card-sub">강수확률 ${rainProb}%</span>
+    </div>
+  `;
+}
+
+function renderGDD(rows) {
+  const card = document.getElementById('gdd-card');
+  if (rows.length < 2) { card.innerHTML = '<div class="card-label">적산온도 · 캠벨포도</div><div class="card-sub">데이터 없음</div>'; return; }
+
+  const dataRow = rows.find(r => r[1] === '포도');
+  if (!dataRow) { card.innerHTML = '<div class="card-label">적산온도 · 캠벨포도</div><div class="card-sub">포도 작기 없음</div>'; return; }
+
+  const current = parseFloat(dataRow[12]) || 0;
+  const target = parseFloat(dataRow[9]) || 1200;
+  const progress = Math.min(100, Math.round((current / target) * 100));
+  const startDate = dataRow[3] || '-';
+  const targetDate = dataRow[4] || '-';
+
+  // 작기 단계 판단
+  let stage = '발아·발근기';
+  let stageIdx = 0;
+  if (progress >= 20) { stage = '신초신장기'; stageIdx = 1; }
+  if (progress >= 50) { stage = '착과·비대기'; stageIdx = 2; }
+  if (progress >= 80) { stage = '수확 적기 진입'; stageIdx = 3; }
+
+  const stages = ['발아·발근기', '신초신장기', '착과·비대기', '수확 적기'];
+
+  card.innerHTML = `
+    <div class="card-label">적산온도 · 캠벨포도</div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline">
+      <div class="card-value">${current.toFixed(1)}°C</div>
+      <div style="font-size:22px;font-weight:700;color:#06b6d4">${progress}%</div>
+    </div>
+    <div class="gdd-bar-bg">
+      <div class="gdd-bar" style="width:${progress}%"></div>
+    </div>
+    <div class="gdd-labels">
+      <span>0°C</span>
+      <span>목표 ${target}°C</span>
+    </div>
+    <div style="margin-top:12px">
+      <div class="card-sub" style="margin-bottom:6px">현재 단계: <strong style="color:#e2e8f0">${stage}</strong></div>
+      <div class="stage-bar">
+        ${stages.map((s,i) => `<div class="stage ${i < stageIdx ? 'done' : i === stageIdx ? 'active' : ''}" title="${s}"></div>`).join('')}
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px">
+        ${stages.map((s,i) => `<span style="font-size:10px;color:${i===stageIdx?'#94a3b8':'#475569'}">${s}</span>`).join('')}
+      </div>
+    </div>
+    <div class="card-sub" style="margin-top:8px">작기 ${startDate} ~ ${targetDate}</div>
+  `;
+}
+
+function renderWater(rows) {
+  const card = document.getElementById('water-card');
+  if (rows.length < 2) { card.innerHTML = '<div class="card-label">최근 관수</div><div class="card-sub">기록 없음</div>'; return; }
+
+  const recent = rows.slice(1).filter(r => r[0]).slice(-5).reverse();
+
+  card.innerHTML = `
+    <div class="card-label">최근 관수</div>
+    ${recent.map(r => `
+      <div class="list-item">
+        <span>${r[6] ? r[5]+'L' : r[8] || '-'}</span>
+        <span class="list-date">${r[2] || '-'}</span>
+      </div>
+    `).join('')}
+  `;
+}
+
+function renderDisease(rows) {
+  const card = document.getElementById('disease-card');
+  const recent = rows.slice(1).filter(r => r[0]);
+
+  if (!recent.length) {
+    card.innerHTML = `
+      <div class="card-label">병해 경보</div>
+      <div style="text-align:center;padding:16px 0">
+        <span class="status-dot dot-green"></span>
+        <span style="font-size:16px;font-weight:600;color:#10b981">이상 없음</span>
+        <div class="card-sub" style="margin-top:4px">병해 기록 없음</div>
+      </div>
+    `;
+    return;
+  }
+
+  const last = recent[recent.length - 1];
+  const severity = last[5] || '';
+  const dotClass = severity === '중증' ? 'dot-red' : severity === '중' ? 'dot-yellow' : 'dot-green';
+  const badgeClass = severity === '중증' ? 'badge-red' : severity === '중' ? 'badge-yellow' : 'badge-green';
+
+  card.innerHTML = `
+    <div class="card-label">병해 경보</div>
+    <div style="margin-top:4px">
+      <span class="status-dot ${dotClass}"></span>
+      <span class="badge ${badgeClass}">${severity || '경'}</span>
+      <div class="card-sub" style="margin-top:8px">${last[3] || '-'}</div>
+      <div class="list-date" style="margin-top:4px">${last[2] || '-'} · ${last[4] || '-'}</div>
+    </div>
+  `;
+}
+
+loadData();
+setInterval(loadData, 300000); // 5분마다 자동 갱신
+</script>
+
+</body>
+</html>
