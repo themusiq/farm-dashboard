@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="/manifest.json">
-<title>RAY 농장 대시보드</title>
+<title>🌳솔이숲농장 대시보드</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:#0f172a;color:#e2e8f0;font-family:-apple-system,sans-serif;max-width:480px;margin:0 auto;padding:12px;}
@@ -340,7 +340,7 @@ function renderHarvest() {
 
 function renderWater(rows) {
   const card = document.getElementById('water-card');
-  const data = rows.slice(1).filter(r=>r[0]&&r[2]).slice(-5).reverse();
+  const data = rows.slice(1).filter(r=>r[0]&&r[2]).slice(-10).reverse();
   if (!data.length) {
     card.innerHTML = `<div class="card-label">최근 관수 · ${CURRENT_CROP}</div><div class="empty">관수 기록 없음</div>`;
     return;
@@ -348,14 +348,91 @@ function renderWater(rows) {
   const today = new Date();
   const lastDate = new Date(data[0][2]);
   const diff = Math.floor((today-lastDate)/86400000);
+
+  // 포도는 온실/노지 분리
+  if (CURRENT_CROP === '포도') {
+    const greenhouse = data.filter(r => {
+      const zone = (r[4]||'').toLowerCase();
+      return zone.includes('1동') || zone.includes('2동') || zone.includes('온실') || zone.includes('하우스');
+    });
+    const outdoor = data.filter(r => {
+      const zone = (r[4]||'').toLowerCase();
+      return zone.includes('노지');
+    });
+    const other = data.filter(r => {
+      const zone = (r[4]||'').toLowerCase();
+      return !zone.includes('1동') && !zone.includes('2동') && !zone.includes('온실') && !zone.includes('하우스') && !zone.includes('노지');
+    });
+
+    // 온실 관수 권장량 체크 (5일 1회 15톤 기준)
+    const lastGH = greenhouse[0];
+    const ghDate = lastGH ? new Date(lastGH[2]) : null;
+    const ghDiff = ghDate ? Math.floor((today-ghDate)/86400000) : null;
+    const ghWarn = ghDiff !== null && ghDiff >= 5;
+
+    card.innerHTML = `
+      <div class="card-label">최근 관수 · 포도</div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:10px">
+        마지막 관수 <strong style="color:${diff>=3?'#f59e0b':'#10b981'}">${diff}일 전</strong>
+        ${ghWarn ? '<span style="color:#ef4444;margin-left:8px">⚠️ 온실 관수 필요 (5일 경과)</span>' : ''}
+      </div>
+
+      ${greenhouse.length ? `
+      <div class="section-title">🏠 온실 (1동 · 2동)</div>
+      <div style="font-size:11px;color:#334155;margin-bottom:6px">권장: 5일 1회 15톤 · 착과기 3일 1회 20톤</div>
+      <div class="water-list">
+        ${greenhouse.slice(0,3).map(r => `
+          <div class="water-item">
+            <div>
+              <div style="font-weight:500">${r[5]?Number(r[5]).toLocaleString()+'L':r[8]||'-'}</div>
+              <div class="water-zone">${r[4]||''} ${r[6]?'· '+r[6]:''}</div>
+            </div>
+            <div class="water-date">${r[2]||''}</div>
+          </div>
+        `).join('')}
+      </div>` : ''}
+
+      ${outdoor.length ? `
+      <div class="section-title" style="margin-top:10px">🌿 노지 비가림</div>
+      <div style="font-size:11px;color:#334155;margin-bottom:6px">강우 시 자연공급 · 건조기 보조관수</div>
+      <div class="water-list">
+        ${outdoor.slice(0,2).map(r => `
+          <div class="water-item">
+            <div>
+              <div style="font-weight:500">${r[5]?Number(r[5]).toLocaleString()+'L':r[8]||'-'}</div>
+              <div class="water-zone">${r[4]||''}</div>
+            </div>
+            <div class="water-date">${r[2]||''}</div>
+          </div>
+        `).join('')}
+      </div>` : ''}
+
+      ${other.length ? `
+      <div class="section-title" style="margin-top:10px">기타</div>
+      <div class="water-list">
+        ${other.slice(0,2).map(r => `
+          <div class="water-item">
+            <div>
+              <div style="font-weight:500">${r[5]?Number(r[5]).toLocaleString()+'L':r[8]||'-'}</div>
+              <div class="water-zone">${r[4]||''}</div>
+            </div>
+            <div class="water-date">${r[2]||''}</div>
+          </div>
+        `).join('')}
+      </div>` : ''}
+    `;
+    return;
+  }
+
+  // 다른 작물은 기존 방식
   card.innerHTML = `
     <div class="card-label">최근 관수 · ${CURRENT_CROP}</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:8px">마지막 관수 <strong style="color:${diff>=3?'#f59e0b':'#10b981'}">${diff}일 전</strong></div>
     <div class="water-list">
-      ${data.map(r => `
+      ${data.slice(0,5).map(r => `
         <div class="water-item">
           <div>
-            <div>${r[5]?r[5]+'L':''} ${r[7]?'· '+r[7]:''}</div>
+            <div>${r[5]?Number(r[5]).toLocaleString()+'L':''} ${r[7]?'· '+r[7]:''}</div>
             <div class="water-zone">${r[4]||''}</div>
           </div>
           <div class="water-date">${r[2]||''}</div>
@@ -412,15 +489,23 @@ function renderDisease(rows) {
   const severity = last[5] || '경';
   const dotCls = severity==='중증'?'dot-r':severity==='중'?'dot-y':'dot-g';
   const badgeCls = severity==='중증'?'badge-r':severity==='중'?'badge-y':'badge-g';
+const cropEmoji = CURRENT_CROP==='포도'?'🍇':CURRENT_CROP==='수박'?'🍉':'🥬';
   card.innerHTML = `
     <div class="card-label">병해 경보 · ${CURRENT_CROP}</div>
     <div style="margin-top:4px">
-      <span class="dot ${dotCls}"></span>
-      <span class="badge ${badgeCls}">${severity}</span>
-      <span class="badge-crop">${CURRENT_CROP}</span>
-      <div style="font-size:14px;font-weight:500;margin-top:8px">${last[3]||'-'}</div>
-      <div style="font-size:12px;color:#64748b;margin-top:4px">${last[2]||''} · ${last[4]||''}</div>
-      ${last[7] ? `<div style="font-size:12px;color:#94a3b8;margin-top:4px">조치: ${last[7]}</div>` : ''}
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+        <span class="dot ${dotCls}"></span>
+        <span class="badge ${badgeCls}">${severity}</span>
+        <span style="font-size:16px">${cropEmoji}</span>
+        <span style="font-size:13px;font-weight:500;color:#e2e8f0">${CURRENT_CROP}</span>
+      </div>
+      <div style="font-size:15px;font-weight:600;color:#f1f5f9">${last[3]||'-'}</div>
+      <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+        <span style="font-size:12px;color:#64748b">📅 ${last[2]||''}</span>
+        <span style="font-size:12px;color:#64748b">📍 ${last[4]||''}</span>
+      </div>
+      ${last[6]?`<div style="font-size:12px;color:#94a3b8;margin-top:4px">발생비율: ${last[6]}%</div>`:''}
+      ${last[7]?`<div style="font-size:12px;color:#06b6d4;margin-top:4px">✅ 조치: ${last[7]}</div>`:''}
     </div>
   `;
 }
