@@ -1,4 +1,4 @@
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   const SHEET_ID = process.env.SHEET_ID;
   const API_KEY = process.env.SHEETS_API_KEY;
 
