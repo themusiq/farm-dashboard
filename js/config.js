@@ -31,4 +31,24 @@ const GROWTH_RULES = [
   {crop:'포도', gddMin:85, gddMax:100, type:'urgent', icon:'🍇',
    title:'수확 준비',
    desc:'적산온도 85% 이상 — 수확 적기 진입'},
+  {crop:'포도', gddMin:0, gddMax:15, type:'warn', icon:'🌡️',
+ title:'온도 관리 — 낮 25°C 이하 유지',
+ desc:'측창 개방 확인 · 고온 시 기형화수 위험 · 최저 7°C 이상 유지'},
+{crop:'포도', gddMin:0, gddMax:20, type:'info', icon:'👁️',
+ title:'눈따기 작업 시작',
+ desc:'묵은 가지 눈, 꽃송이 없는 눈 우선 제거 · 저장양분 절약'},
+{crop:'포도', gddMin:0, gddMax:25, type:'info', icon:'🌿',
+ title:'멀칭 준비 (5~7월)',
+ desc:'주목 좌우 50cm 개방 · 통로 위주 멀칭 · 초생재배 발목 높이 이상 시 예초'},
 ];
+
+// 솔이숲농장 재배 방식
+const FARM_METHOD = {
+  groundCover: '초생재배', // 멀칭 없이 풀 유지
+  mowingTrigger: '발목 이상', // 예초 기준
+  mulchingPlan: {
+    timing: '5월~7월',
+    zone: '통로 위주',
+    clearance: '주목 좌우 50cm 개방'
+  }
+};
