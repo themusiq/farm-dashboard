@@ -12,9 +12,9 @@ function renderWeather(rows) {
   
   const temps = src.map(r=>parseFloat(r[3])).filter(v=>!isNaN(v));
   const humids = src.map(r=>parseFloat(r[4])).filter(v=>!isNaN(v));
-  const dewPoints = src.map(r=>parseFloat(r[5])).filter(v=>!isNaN(v));
-  const rains = src.map(r=>parseFloat(r[6])).filter(v=>!isNaN(v));
-  const sky = src[Math.floor(src.length/2)]?.[8]||'-';
+  const rains = src.map(r=>parseFloat(r[5])).filter(v=>!isNaN(v));
+  const dewPoints = src.map(r=>parseFloat(r[9])).filter(v=>!isNaN(v));  // ← index 9로 수정
+  const sky = src[Math.floor(src.length/2)]?.[7]||'-';
   
   const maxT = temps.length ? Math.max(...temps) : '-';
   const minT = temps.length ? Math.min(...temps) : '-';
