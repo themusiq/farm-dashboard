@@ -13,7 +13,7 @@ function renderWeather(rows) {
   const temps = src.map(r=>parseFloat(r[3])).filter(v=>!isNaN(v));
   const humids = src.map(r=>parseFloat(r[4])).filter(v=>!isNaN(v));
   const rains = src.map(r=>parseFloat(r[5])).filter(v=>!isNaN(v));
-  const dewPoints = src.map(r=>parseFloat(r[9])).filter(v=>!isNaN(v));  // ← index 9로 수정
+  const dewPoints = src.map(r=>parseFloat(r[9])).filter(v=>!isNaN(v));
   const sky = src[Math.floor(src.length/2)]?.[7]||'-';
   
   const maxT = temps.length ? Math.max(...temps) : '-';
@@ -22,12 +22,67 @@ function renderWeather(rows) {
   const minDew = dewPoints.length ? Math.min(...dewPoints) : '-';
   const maxR = rains.length ? Math.max(...rains) : 0;
   
-  // 서리 경보 조건: 이슬점 < 0°C AND 온도 < 3°C
-  const hasFrostRisk = minDew !== '-' && minDew < 0 && minT !== '-' && minT < 3;
-  const frostWarning = hasFrostRisk ? 
-    `<div style="background:#7f1d1d;border:1px solid #dc2626;color:#fca5a5;padding:12px;border-radius:6px;margin-top:12px;font-weight:600">
-      🚨 서리 경보: 이슬점 ${minDew}°C, 최저기온 ${minT}°C
-      <div style="font-size:12px;color:#f87171;margin-top:4px">야간 농작물 보호 필요</div>
+  // === 서리 위험도 계산 ===
+  let frostRisk = 0;
+  if (minDew !== '-' && minT !== '-') {
+    // 이슬점이 낮을수록 위험도 증가
+    frostRisk += Math.max(0, (0 - minDew) * 10);
+    // 최저기온이 낮을수록 추가 위험
+    frostRisk += Math.max(0, (3 - minT) * 5);
+  }
+  frostRisk = Math.min(100, Math.round(frostRisk));
+  
+  // 위험도에 따른 레벨 결정
+  let riskEmoji, riskLevel, riskColor, riskBgColor;
+  if (frostRisk >= 70) {
+    riskEmoji = '🚨';
+    riskLevel = '높음';
+    riskColor = '#ef4444';
+    riskBgColor = '#7f1d1d';
+  } else if (frostRisk >= 40) {
+    riskEmoji = '⚠️';
+    riskLevel = '중간';
+    riskColor = '#f59e0b';
+    riskBgColor = '#78350f';
+  } else {
+    riskEmoji = '✅';
+    riskLevel = '낮음';
+    riskColor = '#10b981';
+    riskBgColor = '#064e3b';
+  }
+  
+  // 조치 사항
+  let measures = '';
+  if (frostRisk >= 70) {
+    measures = `
+      <div style="font-size:12px;color:#fca5a5;margin-top:8px;line-height:1.6">
+        <strong>⚡ 즉시 조치:</strong><br>
+        • 난방 시스템 점검<br>
+        • 하우스 보온 강화<br>
+        • 관수 중단 권장
+      </div>`;
+  } else if (frostRisk >= 40) {
+    measures = `
+      <div style="font-size:12px;color:#fcd34d;margin-top:8px;line-height:1.6">
+        <strong>⚡ 예방 조치:</strong><br>
+        • 난방 준비<br>
+        • 환기 최소화<br>
+        • 상태 모니터링
+      </div>`;
+  }
+  
+  // 진행바
+  const barWidth = frostRisk;
+  const frostWarning = frostRisk > 0 ? `
+    <div style="background:#${riskBgColor};border:1px solid #${riskColor};color:#${riskColor};padding:12px;border-radius:6px;margin-top:12px;font-weight:600">
+      ${riskEmoji} 오늘밤 서리 ${riskLevel}
+      <div style="margin-top:8px">
+        <div style="font-size:12px;color:#${riskColor};margin-bottom:4px">위험도: ${frostRisk}%</div>
+        <div style="background:#0f172a;border-radius:4px;height:8px;overflow:hidden;width:100%">
+          <div style="background:linear-gradient(90deg,#ef4444,#f59e0b);height:100%;width:${barWidth}%;border-radius:4px;"></div>
+        </div>
+      </div>
+      ${measures}
     </div>` : '';
   
   const skyEmoji = sky==='맑음'?'☀️':sky==='구름많음'?'⛅':sky==='흐림'?'☁️':'🌤️';
