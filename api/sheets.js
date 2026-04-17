@@ -3,7 +3,7 @@ module.exports = async function handler(req, res) {
   const API_KEY = process.env.SHEETS_API_KEY;
 
   const ranges = [
-    '기상!A1:J60',
+    '기상!A2:J999',
     '작기정보!A1:N10',
     '포도_관수!A1:I50',
     '포도_병해!A1:J20',
