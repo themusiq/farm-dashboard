@@ -100,37 +100,3 @@ function renderWeather(rows) {
     </div>
     ${frostWarning}`;
 }
-// 이슬점 위험도 계산
-const dewPoint = Math.min(...dewPoints); // 최저 이슬점
-const minTemp = Math.min(...temps);      // 최저 기온
-
-const dewPointMargin = minTemp - dewPoint; // 온도 여유도
-
-// 위험도 판정
-let dewPointRisk = '✅ 안전';
-let dewPointColor = '#4CAF50'; // 초록
-
-if (dewPointMargin < 5) {
-  dewPointRisk = '⚠️ 주의';
-  dewPointColor = '#FF9800'; // 주황
-}
-if (dewPointMargin < 2) {
-  dewPointRisk = '🚨 위험';
-  dewPointColor = '#F44336'; // 빨강
-}
-
-// UI
-const dewPointCard = `
-  <div class="card" style="border-left: 4px solid ${dewPointColor}">
-    <h3>이슬점 위험도</h3>
-    <div style="font-size: 24px; font-weight: bold; color: ${dewPointColor}">
-      ${dewPointRisk}
-    </div>
-    <p>현재 온도: ${minTemp}°C</p>
-    <p>최저 이슬점: ${dewPoint.toFixed(1)}°C</p>
-    <p>여유도: ${dewPointMargin.toFixed(1)}°C</p>
-    <p style="font-size: 12px; color: #999;">
-      ${dewPointMargin < 2 ? '서리 발생 가능 - 보온 강화' : '현재 안전 상태'}
-    </p>
-  </div>
-`;
